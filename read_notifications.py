@@ -6,14 +6,15 @@ import csv
 
 file_path = os.path.join(os.path.dirname(__file__), 'files', 'WhatsApp Chat with NOTIFICATION.txt')
 
+csv_file_path = os.path.join(os.path.dirname(__file__), 'files', 'log.csv')
 
 connection = sqlite3.connect('db.db')
 cursor = connection.cursor()
 
 #clean table log
-# cursor.execute('''
-#     DELETE FROM log
-# ''')
+cursor.execute('''
+    DELETE FROM log
+''')
 
 #delete table log
 # cursor.execute('''
@@ -21,6 +22,7 @@ cursor = connection.cursor()
 # ''')
 
 #craete table log if not exists
+
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS log(
         date TEXT,
@@ -53,30 +55,30 @@ flags = [
     {'flag': 'OUT', 'description': 'Salida'},
     {'flag': 'EMR', 'description': 'Emergencia'},
     {'flag': 'COR', 'description': 'Corrección'},    
+    {'flag': 'BTW', 'description': 'Back to work'},    
 ]              
 
-file = open(file_path, "r")
 
 flags_regex_str = '|'.join([f['flag'] for f in flags]) 
 flags_regex_str = f'({flags_regex_str})'
 
-user_name_regex = re.compile(r'(^\d{1,2}/\d{1,2}/\d{1,2}), (\d{2}:\d{2}) - (.*): '+flags_regex_str+r'([\s\S]*)')
+notification_regex = re.compile(r'(\d{1,2}/\d{1,2}/\d{1,2}), (\d{2}:\d{2}) - (.*): (B1|B2|LCH|OUT|EMR|COR|BTW)([\s\S]*)')
 
-date = ''
-time = ''
-user = ''
-flag = ''
-description = ''
-
+file = open(file_path, "r")
 for line in file:
-    regex_match = user_name_regex.match(line)
+    regex_match = notification_regex.match(line)
     if regex_match:
         date = regex_match.group(1)
         time = regex_match.group(2)
         user = regex_match.group(3)
         flag = regex_match.group(4)
         message = regex_match.group(5)
-        # print(f'date: {date} time: {time} user: {user} flag: {flag} message: {regex_match.group(5)}')
+        # message = "mssg"
+        message = message.strip()
+        message = message.replace('\n', '')
+        if message == '':
+            message = "N/A"
+        print(f'date: {date} time: {time} user: {user} flag: {flag} message: {message}')
 
         cursor.execute('''
             INSERT INTO log(date, time, user, flag, message)
@@ -99,7 +101,14 @@ res = cursor.execute('''
     FROM log
 ''')
 
-res_str = str(res.fetchall())
+
+#write to csv
+with open(csv_file_path, mode='w', newline='') as file:
+    writer = csv.writer(file, dialect='excel', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(['date', 'time', 'user', 'flag', 'message'])
+    for row in res.fetchall():
+        writer.writerow([row[0], row[1], row[2], row[3], row[4] ])
+        # print(row)
+
 connection.close()
 
-print(res_str)
